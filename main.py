@@ -1,46 +1,59 @@
 import os
 from utils.file_handler import read_sales_data
-from utils.data_processor import parse_transactions, validate_and_filter
+from utils.data_processor import (
+    parse_transactions, validate_and_filter,
+    calculate_total_revenue, region_wise_sales,
+    daily_sales_trend, find_peak_sales_day,
+    top_selling_products
+)
 
 
 def main():
-    # Setup paths relative to your MacBook Desktop
     base_path = os.path.dirname(os.path.abspath(__file__))
     input_file = os.path.join(base_path, 'data', 'sales_data.txt')
 
-    print("--- 🚀 Sales Analytics System ---")
-
-    # 1. READ (Task 1.1)
+    # 1. Load and Parse (Task 1.1 & 1.2)
     raw_lines = read_sales_data(input_file)
-    if not raw_lines:
-        return
+    if not raw_lines: return
+    all_transactions = parse_transactions(raw_lines)
 
-    # 2. PARSE (Task 1.2)
-    transactions = parse_transactions(raw_lines)
+    # 2. Filter Display (Task 1.3 Requirements)
+    # Print available regions and amount range before the final cleaning
+    regions_found = sorted(list(set(t['Region'] for t in all_transactions)))
+    print(f"\n[SYSTEM] Available Regions for Filtering: {', '.join(regions_found)}")
 
-    # 3. ANALYZE FOR USER (Filter Display Requirements)
-    # Get available regions for the user to choose from
-    regions = sorted(list(set(t['Region'] for t in transactions)))
-    print(f"\nAvailable Regions: {', '.join(regions)}")
+    # 3. Clean and Validate
+    valid_data, _, summary = validate_and_filter(all_transactions)
 
-    # Calculate min/max transaction amounts for the user
-    amounts = [t['Quantity'] * t['UnitPrice'] for t in transactions]
-    print(f"Transaction Amount Range: ${min(amounts):,.2f} - ${max(amounts):,.2f}")
+    # 4. Run Analytics (Task 2.1 - 2.3)
+    total_rev = calculate_total_revenue(valid_data)
+    reg_stats = region_wise_sales(valid_data)
+    peak_date, peak_rev, peak_count = find_peak_sales_day(valid_data)
+    top_5 = top_selling_products(valid_data, n=5)
 
-    # 4. VALIDATE & FILTER (Task 1.3)
-    # Example: You can prompt the user for input, or set defaults
-    selected_region = input("\nEnter region to filter by (or press Enter for all): ").strip() or None
+    # --- FINAL COMPREHENSIVE REPORT ---
+    print("\n" + "=" * 55)
+    print(f"{'SALES PERFORMANCE EXECUTIVE SUMMARY':^55}")
+    print("=" * 55)
+    print(f"Total Revenue:            ${total_rev:,.2f}")
+    print(f"Peak Sales Date:          {peak_date} (${peak_rev:,.2f})")
+    print(f"Peak Transaction Count:   {peak_count}")
+    print("-" * 55)
 
-    # Passing None to the filter function if the user didn't type anything
-    valid_data, invalid_count, summary = validate_and_filter(
-        transactions,
-        region=selected_region
-    )
+    # Regional Table (Task 2.1b)
+    print(f"{'Region':<15} | {'Sales':<12} | {'Transactions':<12} | {'%':<5}")
+    print("-" * 55)
+    for reg, data in reg_stats.items():
+        print(f"{reg:<15} | ${data['total_sales']:<11,.2f} | {data['transaction_count']:<12} | {data['percentage']}%")
 
-    # 5. FINAL REPORT
-    print("\n--- Process Summary ---")
-    for key, value in summary.items():
-        print(f"{key.replace('_', ' ').title()}: {value}")
+    # Top Products Table (Task 2.3c)
+    print("\n" + "-" * 55)
+    print(f"{'TOP 5 PRODUCTS BY QUANTITY':^55}")
+    print("-" * 55)
+    print(f"{'Product Name':<20} | {'Qty Sold':<10} | {'Total Revenue':<15}")
+    for name, qty, rev in top_5:
+        print(f"{name:<20} | {qty:<10} | ${rev:<14,.2f}")
+    print("=" * 55)
 
 
 if __name__ == "__main__":
